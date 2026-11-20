@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Myaku · Leo Langley</title>
+<meta name="description" content="How Leo Langley designed and built Myaku, an early warning for athlete burnout that compares a wearable, a reaction test, and self-report against the athlete's own history." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@700;900&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+<style>
+/* Layout: one instrument-panel column on a dot grid, the same world as the app itself,
+   with a pulse trace that splits into the three channels as the opening image. */
+:root {
+  --bg: #060708;
+  --panel: #0d0e11;
+  --panel-2: #131418;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.15);
+  --fg: #f2f3f5;
+  --muted: #9ba1aa;
+  --faint: #5f656e;
+  --heart: #ff4f7b;
+  --body: #ffab4a;
+  --brain: #a99bff;
+  --life: #62d0f5;
+  --good: #6fe3a5;
+  --display: "Doto", "JetBrains Mono", ui-monospace, monospace;
+  --sans: "Inter Tight", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background-color: var(--bg);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 22px 22px;
+  color: var(--fg);
+  font: 400 16px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--heart); outline-offset: 3px; border-radius: 6px; }
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 88px;
+}
+/* Grid items default to their content's width, which would let the wide trace and
+   table push the page sideways; they scroll inside their own boxes instead. */
+.wrap > *, .hero > *, .section > *, .evidence > *, .figure > * { min-width: 0; }
+.prose { max-width: 66ch; display: grid; gap: 14px; }
+.prose p { margin: 0; color: #d6d9de; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h2 { font: 600 clamp(26px, 4vw, 34px)/1.15 var(--sans); letter-spacing: -0.01em; }
+h3 { font: 600 18px/1.3 var(--sans); }
+.label {
+  font: 500 12px/1.4 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.section { display: grid; gap: 28px; }
+.section-head { display: grid; gap: 10px; }
+.mono { font-family: var(--mono); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- top bar ---------- */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 15px var(--sans); text-decoration: none; }
+.brand-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--heart); box-shadow: 0 0 12px rgba(255, 79, 123, 0.7); }
+.nav { display: flex; gap: 4px 18px; flex-wrap: wrap; }
+.nav a { font: 500 13px var(--sans); color: var(--muted); text-decoration: none; padding: 6px 0; }
+.nav a:hover { color: var(--fg); }
+
+/* ---------- hero ---------- */
+.hero { display: grid; gap: 26px; }
+.hero h1 {
+  font: 900 clamp(64px, 15vw, 152px)/0.92 var(--display);
+  letter-spacing: 0.02em;
+  color: var(--fg);
+}
+.hero h1 span { color: var(--heart); }
+.lead { font: 500 clamp(19px, 2.6vw, 24px)/1.45 var(--sans); max-width: 44ch; color: var(--fg); margin: 0; }
+.byline { color: var(--muted); margin: 0; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 16px; border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font: 600 14px var(--sans); text-decoration: none; color: var(--fg);
+  background: var(--panel);
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--heart); border-color: var(--heart); color: #1c0409; }
+.btn.primary:hover { background: #ff6a90; }
+.trace-box { border: 1px solid var(--line); border-radius: 18px; background: rgba(13, 14, 17, 0.85); padding: 18px 18px 12px; }
+.trace-scroll { overflow-x: auto; }
+.trace { display: block; width: 100%; min-width: 560px; height: auto; }
+.trace .grid { stroke: var(--line); stroke-width: 1; }
+.trace polyline { fill: none; stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.trace text { font: 600 15px var(--sans); }
+.trace-caption { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.trace-caption p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* ---------- facts ---------- */
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 18px; background: var(--panel); }
+.fact { padding: 20px; display: grid; gap: 6px; align-content: start; }
+.fact + .fact { border-left: 1px solid var(--line); }
+.fact b { font: 900 clamp(30px, 4.6vw, 44px)/1 var(--display); color: var(--fg); font-variant-numeric: tabular-nums; }
+
+/* ---------- channels ---------- */
+.channels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.channel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 20px; display: grid; gap: 10px; align-content: start; }
+.chip-dot { display: inline-flex; align-items: center; gap: 8px; }
+.chip-dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.channel h3 { color: var(--c); font-size: 22px; }
+.channel p { margin: 0; color: #d6d9de; font-size: 15px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; counter-reset: step; }
+.steps li { border-top: 1px solid var(--line-strong); padding-top: 14px; display: grid; gap: 6px; align-content: start; counter-increment: step; }
+.steps li::before { content: "0" counter(step); font: 500 12px var(--mono); color: var(--heart); letter-spacing: 0.1em; }
+.steps p { margin: 0; color: var(--muted); font-size: 15px; }
+
+.table-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+table { width: 100%; border-collapse: collapse; min-width: 560px; }
+th, td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font: 500 12px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+th.c, td.c { text-align: center; width: 64px; }
+td.name { font-weight: 600; white-space: nowrap; }
+td.detail { color: var(--muted); font-size: 15px; }
+.dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--faint); }
+.dot.on { background: var(--c); border-color: var(--c); box-shadow: 0 0 8px var(--c); }
+
+/* ---------- rules ---------- */
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 22px 28px; }
+.rule { display: grid; gap: 6px; align-content: start; }
+.rule p { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* ---------- evidence ---------- */
+.evidence { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 32px; align-items: start; }
+.figure { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); padding: 20px; display: grid; gap: 12px; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.chart { display: block; width: 100%; height: auto; }
+.chart .gridline { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font: 500 12px var(--mono); }
+.chart .xlab { fill: var(--fg); font: 600 13px var(--sans); }
+.chart .val { fill: var(--fg); font: 600 13px var(--mono); }
+.chart .none { fill: var(--faint); font: 500 11px var(--mono); }
+.chart .before { fill: #3a3e46; }
+.chart .now { fill: var(--heart); }
+.figure-note { margin: 0; color: var(--muted); font-size: 14px; }
+.callout { border: 1px solid rgba(255, 79, 123, 0.35); background: rgba(58, 15, 28, 0.45); border-radius: 16px; padding: 18px 20px; display: grid; gap: 8px; }
+.callout p { margin: 0; color: #f0d9df; }
+
+/* ---------- build log ---------- */
+.log { list-style: none; margin: 0; padding: 0; display: grid; }
+.entry { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 20px; padding: 22px 0; border-top: 1px solid var(--line); }
+.entry time, .entry .when { font: 500 13px var(--mono); color: var(--muted); padding-top: 2px; }
+.entry-body { display: grid; gap: 8px; min-width: 0; }
+.entry-body p { margin: 0; color: #d6d9de; font-size: 15px; }
+.skills { display: flex; flex-wrap: wrap; gap: 6px; }
+.skills span { font: 500 12px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+.entry.next .when { color: var(--heart); }
+.entry.next h3 { color: var(--heart); }
+
+/* ---------- what broke ---------- */
+.broke { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.broke article { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 20px; display: grid; gap: 8px; align-content: start; }
+.broke p { margin: 0; color: var(--muted); font-size: 15px; }
+.broke .fix { color: #d6d9de; }
+.broke .fix b { color: var(--good); font-weight: 600; }
+
+/* ---------- stack ---------- */
+.stack { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); overflow: hidden; }
+.stack div { padding: 16px 18px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); display: grid; gap: 4px; }
+.stack dd { margin: 0; font-weight: 500; }
+.stack dt { margin: 0; }
+
+/* ---------- next ---------- */
+.next-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.next-card { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); padding: 22px; display: grid; gap: 10px; align-content: start; }
+.next-card p { margin: 0; color: #d6d9de; font-size: 15px; }
+.parts { display: flex; flex-wrap: wrap; gap: 6px; }
+.parts span { font: 500 12px var(--mono); border-radius: 999px; padding: 4px 10px; background: var(--panel-2); border: 1px solid var(--line-strong); }
+
+footer { border-top: 1px solid var(--line); padding-top: 24px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+footer p { margin: 0; }
+
+@media (max-width: 860px) {
+  .channels, .steps, .evidence, .next-grid { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fact:nth-child(3) { border-left: 0; }
+  .fact:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .wrap { gap: 68px; }
+}
+@media (max-width: 560px) {
+  .entry { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .nav { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <a class="brand" href="../"><span class="brand-dot" aria-hidden="true"></span>Leo Langley</a>
+    <nav class="nav" aria-label="Sections">
+      <a class="nav-link" href="#problem">Background</a>
+      <a class="nav-link" href="#how">How It Works</a>
+      <a class="nav-link" href="#evidence">Validation</a>
+      <a class="nav-link" href="#log">Timeline</a>
+      <a class="nav-link" href="#broke">Fixes</a>
+      <a class="nav-link" href="#next">Next</a>
+    </nav>
+  </header>
+
+  <section class="hero" id="top">
+    <p class="label"><span lang="ja">脈</span> Japanese For Pulse</p>
+    <h1>MYAKU<span>.</span></h1>
+    <p class="lead">A web app for student athletes that compares wearable data, a reaction-time test, and daily check-ins against each athlete's own baseline, and flags when they stop agreeing.</p>
+    <p class="byline">Designed and built by Leo Langley. Independent project, August 2026 to present.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/leolangley25/Myaku">Source On GitHub</a>
+      <a class="btn" href="https://github.com/leolangley25/Myaku/blob/main/DEVLOG.md">Full Build Log</a>
+      <a class="btn" href="https://github.com/leolangley25/Myaku/blob/main/REFERENCES.md">Works Cited</a>
+    </div>
+    <div class="trace-box">
+      <div class="trace-scroll">
+        <svg class="trace" viewBox="0 0 1090 200" role="img" aria-label="Three pulse traces beat together, then the Brain and Life traces drift away while Body stays steady.">
+          <line class="grid" x1="0" y1="110" x2="1000" y2="110" />
+          <line class="grid" x1="380" y1="10" x2="380" y2="195" stroke-dasharray="3 5" />
+          <polyline stroke="var(--life)" points="0,110 40,110 52,101 64,110 84,110 92,122 100,48 110,144 118,110 150,110 165,96 180,110 200,110 240,110 252,101 264,110 284,110 292,122 300,48 310,144 318,110 350,110 365,96 380,110 400,110.2 440,111.2 452,102.7 464,112.1 484,113 492,125.4 500,51.8 510,148.3 518,114.7 550,116.6 565,103.5 580,118.5 600,119.9 640,122.9 652,114.9 664,124.9 684,126.6 692,139.3 700,66 710,163 718,129.7 750,132.8 765,120.3 780,135.8 800,137.9 840,142.3 852,134.6 864,145 884,147.3 892,160.3 900,87.2 910,184.5 918,151.4 950,155.5 965,143.4 980,159.3 1000,162" />
+          <polyline stroke="var(--brain)" points="0,110 40,110 52,101 64,110 84,110 92,122 100,48 110,144 118,110 150,110 165,96 180,110 200,110 240,110 252,101 264,110 284,110 292,122 300,48 310,144 318,110 350,110 365,96 380,110 400,109.8 440,108.9 452,99.5 464,108.1 484,107.4 492,119 500,44.7 510,140.2 518,105.8 550,104.2 565,89.4 580,102.5 600,101.2 640,98.5 652,88.7 664,96.8 684,95.3 692,106.7 700,32 710,127.2 718,92.6 750,89.9 765,74.5 780,87.2 800,85.3 840,81.5 852,71.3 864,79 884,77 892,88.1 900,13.3 910,108.2 918,73.3 950,69.8 965,54.1 980,66.4 1000,64" />
+          <polyline stroke="var(--body)" points="0,110 40,110 52,101 64,110 84,110 92,122 100,48 110,144 118,110 150,110 165,96 180,110 200,110 240,110 252,101 264,110 284,110 292,122 300,48 310,144 318,110 350,110 365,96 380,110 400,110 440,110 452,101 464,110 484,110 492,122 500,48 510,144 518,110 550,110 565,96 580,110 600,110 640,110 652,101 664,110 684,110 692,122 700,48 710,144 718,110 750,110 765,96 780,110 800,110 840,110 852,101 864,110 884,110 892,122 900,48 910,144 918,110 950,110 965,96 980,110 1000,110" />
+          <text x="1012" y="69" fill="var(--brain)">Brain</text>
+          <text x="1012" y="115" fill="var(--body)">Body</text>
+          <text x="1012" y="167" fill="var(--life)">Life</text>
+        </svg>
+      </div>
+      <div class="trace-caption">
+        <p>Illustration of the target pattern. Body stays in its normal range while Brain and Life move away from theirs.</p>
+        <p class="mono">Head Under Strain</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="facts" aria-label="Project In Numbers">
+    <div class="fact"><b>3</b><span class="label">Channels Read Separately</span></div>
+    <div class="fact"><b>57</b><span class="label">Research Sources Cited</span></div>
+    <div class="fact"><b>109</b><span class="label">Automated Tests Passing</span></div>
+    <div class="fact"><b>WK 2</b><span class="label">First Body Reading</span></div>
+  </section>
+
+  <section class="section" id="problem">
+    <div class="section-head">
+      <p class="label">Background</p>
+      <h2>Why I Built It</h2>
+    </div>
+    <div class="prose">
+      <p>Commercial wearables measure the autonomic nervous system through sleep, heart rate variability, and resting heart rate. Burnout in athletes is mainly psychological.</p>
+      <p>Research measures athlete burnout as exhaustion, a reduced sense of accomplishment, and losing interest in the sport. A wearable's recovery score can look normal while all three are getting worse.</p>
+      <p>Myaku keeps three kinds of data separate, scores each against the athlete's own history, and reports where they disagree.</p>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <div class="section-head">
+      <p class="label">How It Works</p>
+      <h2>Three Channels</h2>
+    </div>
+    <div class="channels">
+      <article class="channel" style="--c: var(--body)">
+        <span class="label chip-dot">From A Wearable</span>
+        <h3>Body</h3>
+        <p>Sleep duration, sleep efficiency, heart rate variability, and resting heart rate, imported from Google Health (Fitbit), Apple Health, or Whoop.</p>
+      </article>
+      <article class="channel" style="--c: var(--brain)">
+        <span class="label chip-dot">From A Reaction Test</span>
+        <h3>Brain</h3>
+        <p>A three-minute psychomotor vigilance test that runs in the browser. A single session is too noisy to interpret, so results are pooled by week.</p>
+      </article>
+      <article class="channel" style="--c: var(--life)">
+        <span class="label chip-dot">From The Athlete</span>
+        <h3>Life</h3>
+        <p>A short daily check-in, a weekly questionnaire with the three athlete burnout dimensions, and optional journal entries scored by a language model on the athlete's own computer.</p>
+      </article>
+    </div>
+    <ol class="steps">
+      <li><h3>Seven-Day Readings</h3><p>Each channel is averaged over the last seven days, counted back from today.</p></li>
+      <li><h3>Your Own Normal</h3><p>Each week is compared with the athlete's earlier weeks using the median and median absolute deviation, so one bad night does not move the baseline.</p></li>
+      <li><h3>Two-Week Rule</h3><p>A channel has to stay outside its normal range for two consecutive weeks before it counts.</p></li>
+      <li><h3>Named Pattern</h3><p>The app names the combination of channels that are off, such as Head Under Strain.</p></li>
+    </ol>
+    <div class="table-box">
+      <table>
+        <caption class="sr-only">Patterns Myaku Can Name</caption>
+        <thead>
+          <tr><th>Pattern</th><th class="c">Body</th><th class="c">Brain</th><th class="c">Life</th><th>What It Says</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">All Clear</td><td class="c"><span class="dot" style="--c: var(--body)"></span></td><td class="c"><span class="dot" style="--c: var(--brain)"></span></td><td class="c"><span class="dot" style="--c: var(--life)"></span></td><td class="detail">Your body, your reaction time, and how you feel all look normal for you.</td></tr>
+          <tr><td class="name">Body Working Hard</td><td class="c"><span class="dot on" style="--c: var(--body)"></span></td><td class="c"><span class="dot" style="--c: var(--brain)"></span></td><td class="c"><span class="dot" style="--c: var(--life)"></span></td><td class="detail">Your body is carrying load, but your head and your week feel fine. This is usually training doing its job.</td></tr>
+          <tr><td class="name">Feeling It First</td><td class="c"><span class="dot" style="--c: var(--body)"></span></td><td class="c"><span class="dot" style="--c: var(--brain)"></span></td><td class="c"><span class="dot on" style="--c: var(--life)"></span></td><td class="detail">You are reporting strain that your body and reaction time have not shown yet. Feelings often move first.</td></tr>
+          <tr><td class="name">Slower Than You Feel</td><td class="c"><span class="dot" style="--c: var(--body)"></span></td><td class="c"><span class="dot on" style="--c: var(--brain)"></span></td><td class="c"><span class="dot" style="--c: var(--life)"></span></td><td class="detail">Your reaction time has dropped, but you are not reporting strain. This is the pattern people most often miss.</td></tr>
+          <tr><td class="name">Head Under Strain</td><td class="c"><span class="dot" style="--c: var(--body)"></span></td><td class="c"><span class="dot on" style="--c: var(--brain)"></span></td><td class="c"><span class="dot on" style="--c: var(--life)"></span></td><td class="detail">Your body is recovered, but you are slower and you are feeling it. Rest alone may not fix this one.</td></tr>
+          <tr><td class="name">Everything Is Strained</td><td class="c"><span class="dot on" style="--c: var(--body)"></span></td><td class="c"><span class="dot on" style="--c: var(--brain)"></span></td><td class="c"><span class="dot on" style="--c: var(--life)"></span></td><td class="detail">Your body, your reaction time, and how you feel are all worse than your normal at the same time.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <p class="label">Principles</p>
+      <h2>Design Principles</h2>
+    </div>
+    <div class="rules">
+      <div class="rule"><h3>Compare Only Against Yourself</h3><p>Normal means the athlete's own recent weeks, not population ranges.</p></div>
+      <div class="rule"><h3>Patterns, Not Diagnoses</h3><p>The app describes what the data shows and never diagnoses.</p></div>
+      <div class="rule"><h3>Private By Default</h3><p>Journal entries are scored on the user's own computer with no cloud fallback, and wearable tokens are encrypted at rest.</p></div>
+      <div class="rule"><h3>No Streaks</h3><p>Reminders skip anything already done that day.</p></div>
+      <div class="rule"><h3>Labeled Evidence</h3><p>Each analysis is marked as a description, an exploratory search, or a pre-registered test.</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="evidence">
+    <div class="section-head">
+      <p class="label">Evidence</p>
+      <h2>Validation</h2>
+    </div>
+    <div class="evidence">
+      <div class="prose">
+        <p>New users used to wait four weeks before the Body channel could be scored, because estimating a person's week-to-week variability takes at least three earlier weeks. Average levels differ a lot between people, but the size of their week-to-week variation is much more similar.</p>
+        <p>I measured that variation in LifeSnaps, a public dataset of Fitbit users followed for about four months, using the app's seven-day windows. Each user now starts with the population value, weighted as four weeks of their own data, and their own data takes over as it accumulates.</p>
+        <p>To test it, I replayed the scoring week by week for 37 to 59 participants, depending on the measure, leaving each person out of the population estimate applied to them. Body can now be scored from week 2 instead of week 4.</p>
+        <div class="callout">
+          <p class="label" style="color: var(--heart)">Calibration Finding</p>
+          <p>The old minimum spread, 4 percent of the athlete's average, was larger than the typical weekly variation in resting heart rate (about 2 percent) and sleep efficiency (under 1 percent), so real changes in both were hidden. The minimum is now set from population data.</p>
+        </div>
+      </div>
+      <figure class="figure" style="margin: 0">
+        <figcaption class="label">Two-Week Worsening Caught</figcaption>
+        <div class="legend">
+          <span><i style="background: #3a3e46"></i>Before</span>
+          <span><i style="background: var(--heart)"></i>After</span>
+        </div>
+        <svg class="chart" viewBox="0 0 640 256" role="img" aria-label="Share of a simulated two-week worsening that was caught, by weeks of history. Before: not readable at one or two weeks, 40 percent at three, 46 at four to five, 31 at six or more. With the borrowed spread: 67, 67, 67, 74 and 59 percent.">
+          <line class="gridline" x1="44" y1="190" x2="624" y2="190" />
+          <line class="gridline" x1="44" y1="146.5" x2="624" y2="146.5" />
+          <line class="gridline" x1="44" y1="103" x2="624" y2="103" />
+          <line class="gridline" x1="44" y1="59.5" x2="624" y2="59.5" />
+          <line class="gridline" x1="44" y1="16" x2="624" y2="16" />
+          <text class="axis" x="36" y="194" text-anchor="end">0%</text>
+          <text class="axis" x="36" y="107" text-anchor="end">50%</text>
+          <text class="axis" x="36" y="20" text-anchor="end">100%</text>
+
+          <text class="none" x="80" y="184" text-anchor="middle">n/a</text>
+          <rect class="now" x="106" y="73.4" width="36" height="116.6" rx="3" />
+          <text class="val" x="124" y="66" text-anchor="middle">67%</text>
+
+          <text class="none" x="196" y="184" text-anchor="middle">n/a</text>
+          <rect class="now" x="222" y="73.4" width="36" height="116.6" rx="3" />
+          <text class="val" x="240" y="66" text-anchor="middle">67%</text>
+
+          <rect class="before" x="294" y="120.4" width="36" height="69.6" rx="3" />
+          <text class="val" x="312" y="113" text-anchor="middle">40%</text>
+          <rect class="now" x="338" y="73.4" width="36" height="116.6" rx="3" />
+          <text class="val" x="356" y="66" text-anchor="middle">67%</text>
+
+          <rect class="before" x="410" y="110" width="36" height="80" rx="3" />
+          <text class="val" x="428" y="103" text-anchor="middle">46%</text>
+          <rect class="now" x="454" y="61.2" width="36" height="128.8" rx="3" />
+          <text class="val" x="472" y="54" text-anchor="middle">74%</text>
+
+          <rect class="before" x="526" y="136.1" width="36" height="53.9" rx="3" />
+          <text class="val" x="544" y="129" text-anchor="middle">31%</text>
+          <rect class="now" x="570" y="87.3" width="36" height="102.7" rx="3" />
+          <text class="val" x="588" y="80" text-anchor="middle">59%</text>
+
+          <text class="xlab" x="102" y="212" text-anchor="middle">1</text>
+          <text class="xlab" x="218" y="212" text-anchor="middle">2</text>
+          <text class="xlab" x="334" y="212" text-anchor="middle">3</text>
+          <text class="xlab" x="450" y="212" text-anchor="middle">4–5</text>
+          <text class="xlab" x="566" y="212" text-anchor="middle">6+</text>
+          <text class="axis" x="334" y="244" text-anchor="middle">Weeks Of Personal Data</text>
+        </svg>
+        <p class="figure-note">False alerts on ordinary weeks stayed between 0 and 5 percent, compared with 0 to 3 percent before. This tests false alerts and sensitivity to a simulated change. It does not show that the app predicts burnout, which will take real data over a full season.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="log">
+    <div class="section-head">
+      <p class="label">Build Log</p>
+      <h2>Timeline</h2>
+    </div>
+    <ol class="log">
+      <li class="entry"><time datetime="2026-08-08">Aug 8</time><div class="entry-body"><h3>The Concept</h3><p>Reframed the idea from performance tracking to burnout prevention, and made visible support resources a hard requirement from the first day.</p><div class="skills"><span>Product Thinking</span><span>Ethical Design</span></div></div></li>
+      <li class="entry"><time datetime="2026-08-09">Aug 9</time><div class="entry-body"><h3>Accounts And Calibration</h3><p>Real accounts with hashed passwords and database sessions, plus a calibration step so readings start from a reference point.</p><div class="skills"><span>Backend Engineering</span><span>Data Security</span></div></div></li>
+      <li class="entry"><time datetime="2026-09-11">Sep 11</time><div class="entry-body"><h3>The Divergence Model</h3><p>Rebuilt everything around three channels, each compared against the athlete's own history, with a persistence rule and three sensitivity settings. Built the browser reaction test and worked out why it has to be read weekly.</p><div class="skills"><span>Statistical Modeling</span><span>Measurement Design</span><span>Systems Design</span></div></div></li>
+      <li class="entry"><time datetime="2026-09-13">Sep 13</time><div class="entry-body"><h3>Real Data And Security</h3><p>Working Whoop, Google Health, and Apple Health connections with OAuth and PKCE. Found and closed a static file setting that exposed the database, then added a content security policy, rate limits, data export, and account deletion.</p><div class="skills"><span>OAuth 2.0</span><span>API Integration</span><span>Application Security</span></div></div></li>
+      <li class="entry"><time datetime="2026-09-14">Sep 14</time><div class="entry-body"><h3>Channel Pages</h3><p>Gave each channel its own page, rebuilt caffeine around what is left at bedtime, recomputed every past week as the engine would have read it then, and moved to a dark instrument-panel design with one dial for all three channels.</p><div class="skills"><span>Data Visualization</span><span>Design Systems</span><span>Longitudinal Analysis</span></div></div></li>
+      <li class="entry"><time datetime="2026-09-21">Sep 21</time><div class="entry-body"><h3>Setup, Schedule, Local Assistant</h3><p>A nine-step setup, a calendar that flags weeks heavier than the athlete's own usual, and an assistant that runs on the athlete's own machine through Ollama.</p><div class="skills"><span>Local Inference</span><span>Prompt Engineering</span><span>Feature Design</span></div></div></li>
+      <li class="entry"><time datetime="2026-10-01">Oct 1</time><div class="entry-body"><h3>An Ease-Of-Use Audit</h3><p>Measured every page at phone width. The daily check-in went from 3.5 screens to 1.6, and two hidden bugs surfaced on the way.</p><div class="skills"><span>Usability Auditing</span><span>Interaction Design</span></div></div></li>
+      <li class="entry"><time datetime="2026-10-02">Oct 2</time><div class="entry-body"><h3>The Journal Joins Life</h3><p>With permission, a local model reads each journal entry for mood, pressure, and burnout signs, weighted at half because model readings track daily change only weakly. Every source went into a Works Cited list, and three claims that did not hold were corrected.</p><div class="skills"><span>Local AI Integration</span><span>Research Verification</span></div></div></li>
+      <li class="entry"><time datetime="2026-10-03">Oct 3</time><div class="entry-body"><h3>An iPhone Pass</h3><p>Swept every page at iPhone width and fixed a model bug where a channel that had gone quiet kept naming the week.</p><div class="skills"><span>Mobile QA</span><span>Debugging</span></div></div></li>
+      <li class="entry"><time datetime="2026-10-05">Oct 5</time><div class="entry-body"><h3>The First Three Weeks</h3><p>Setup now gives results on day one, including a sleep-timing shift and a score from the Athlete Sleep Screening Questionnaire. Every log answers back, and wearable keys can be set up inside the app.</p><div class="skills"><span>Onboarding Design</span><span>Research Translation</span></div></div></li>
+      <li class="entry"><time datetime="2026-10-08">Oct 8</time><div class="entry-body"><h3>Checks Against Real Data</h3><p>Read the Google Health schema before the Fitbit arrived and found the parser would have imported nothing. Made Apple Health accept the zip directly, reading a 412 MB export in under two seconds, and added the population-based baseline.</p><div class="skills"><span>API Integration</span><span>Data Engineering</span><span>Validation</span></div></div></li>
+      <li class="entry next"><span class="when">Next</span><div class="entry-body"><h3>Hardware</h3><p>A wrist device that records heart rate variability, skin conductance, skin temperature, motion, and light overnight, to test whether those signals can fill in the Life channel.</p><div class="skills"><span>Embedded Systems</span><span>CAD</span><span>Signal Processing</span></div></div></li>
+    </ol>
+  </section>
+
+  <section class="section" id="broke">
+    <div class="section-head">
+      <p class="label">Debugging</p>
+      <h2>Problems I Found And Fixed</h2>
+    </div>
+    <div class="broke">
+      <article><h3>Google Health Parser</h3><p>The API returns 64-bit integers as strings, so the first parser would have skipped every night of sleep.</p><p class="fix"><b>Fix.</b> Caught by checking the code against Google's published schema before I had a device, then covered by an end-to-end test against a mock server.</p></article>
+      <article><h3>Stale Readings</h3><p>A channel with no recent data could still set the week's pattern.</p><p class="fix"><b>Fix.</b> Patterns now use only channels with data from the last seven days.</p></article>
+      <article><h3>Spread Floor</h3><p>The fixed 4 percent minimum spread was larger than most people's real weekly variation in resting heart rate and sleep efficiency.</p><p class="fix"><b>Fix.</b> The floor for Body is now set from population data.</p></article>
+      <article><h3>Database Exposure</h3><p>A static-file setting served the database and the session secret.</p><p class="fix"><b>Fix.</b> Closed it, then added a content security policy, origin checks, rate limiting, and account deletion.</p></article>
+      <article><h3>Citations</h3><p>Checking every reference turned up three claims the cited papers did not support.</p><p class="fix"><b>Fix.</b> Corrected or removed each one, and added a test that fails if a page cites a source missing from the reference list.</p></article>
+      <article><h3>Journal Page</h3><p>Two elements shared an ID, which left the journal blank for signed-in users.</p><p class="fix"><b>Fix.</b> Found during a usability audit at phone width.</p></article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <p class="label">Stack</p>
+      <h2>Engineering</h2>
+    </div>
+    <dl class="stack">
+      <div><dt class="label">Server</dt><dd>Node 24 And Express</dd></div>
+      <div><dt class="label">Data</dt><dd>SQLite, Built Into Node</dd></div>
+      <div><dt class="label">Front End</dt><dd>Plain HTML, CSS, JavaScript</dd></div>
+      <div><dt class="label">Security</dt><dd>CSP, OAuth And PKCE</dd></div>
+      <div><dt class="label">Local AI</dt><dd>Ollama On Your Machine</dd></div>
+      <div><dt class="label">Testing</dt><dd>109 Tests, Copy Checker</dd></div>
+    </dl>
+  </section>
+
+  <section class="section" id="next">
+    <div class="section-head">
+      <p class="label">What's Next</p>
+      <h2>Next Steps</h2>
+    </div>
+    <div class="next-grid">
+      <article class="next-card">
+        <h3>A Season On Myself</h3>
+        <p>When my Fitbit Air arrives, I will use the app myself for a season, with predictions written down before I start, and record whether each named pattern was right.</p>
+      </article>
+      <article class="next-card">
+        <h3>The Hardware</h3>
+        <p>A wrist device that records overnight and uploads to Myaku over Wi-Fi each morning, to test whether its signals can fill in the Life channel on days without a check-in.</p>
+        <div class="parts"><span>Heart Rate And HRV</span><span>Skin Conductance</span><span>Skin Temperature</span><span>Motion</span><span>Light</span></div>
+      </article>
+    </div>
+  </section>
+
+  <footer>
+    <p>Myaku is a research project, not a medical device.</p>
+    <p>Leo Langley, 2026</p>
+    <a class="foot-link" href="../">Back To Leo Langley</a>
+  </footer>
+
+</div>
+</body>
+</html>
